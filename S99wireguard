@@ -1,0 +1,68 @@
+#!/bin/sh
+
+WG_QUICK="/etc/kvmd/user/scripts/wg-quick"
+WG_CONF_DIR="/etc/kvmd/user/wireguard"
+LOG_TAG="wg-quick"
+PRIO="daemon.debug"
+WAIT_MAX=30   # seconds
+
+log() { echo "$*"; logger -s -t "$LOG_TAG" -p "$PRIO" -- "$*"; }
+
+wait_for_network() {
+    t=0
+    log "Waiting for network (default route)..."
+    while [ $t -lt $WAIT_MAX ]; do
+        # default route ready?
+        if ip route show default | grep -q .; then
+            log "Network ready after ${t}s."
+            return 0
+        fi
+        sleep 1
+        t=$((t+1))
+    done
+    log "Network not ready after ${WAIT_MAX}s; proceeding anyway."
+    return 0
+}
+
+start() {
+    wait_for_network
+
+    for conf in "$WG_CONF_DIR"/*.conf; do
+        [ ! -f "$conf" ] && continue
+        log "[+] Starting WireGuard config: $conf"
+        "$WG_QUICK" up "$conf" 2>&1 | logger -s -t "$LOG_TAG" -p "$PRIO"
+    done
+}
+
+stop() {
+    # Reverse order just in case there are dependencies
+    for conf in $(ls -r "$WG_CONF_DIR"/*.conf 2>/dev/null); do
+        [ ! -f "$conf" ] && continue
+        log "[+] Stopping WireGuard config: $conf"
+        "$WG_QUICK" down "$conf" 2>&1 | logger -s -t "$LOG_TAG" -p "$PRIO"
+    done
+}
+
+restart() {
+    stop
+    sleep 1
+    start
+}
+
+case "$1" in
+    start)
+        start & # Fork so it doesn't hang the boot process while waiting for network.
+        ;;
+    stop)
+        stop
+        ;;
+    restart|reload)
+        restart
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+
+exit 0
