@@ -4,7 +4,8 @@ This depends on at least firmware version **_1.4.0 beta2_**. I haven't used beta
 
 ## Automatic Install
 
-You will still need to create the wireguard configuration files.
+You will need to create the wireguard configuration files.
+Install script safe to run multiple times, does not overwrite configs.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fragtastic/gl-rm1_wireguard/refs/heads/main/install.sh | sh
